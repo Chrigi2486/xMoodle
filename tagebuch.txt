@@ -1,5 +1,10 @@
-xMoodle Tagebuch
+xMoodle Tagebuch 2020/21
+Christian Cataldo
 
 
 12.05.20: 	Teams Anruf mit Herr Kälin
 			Anmeldeformular ausgefüllt
+
+15.05.20:	Created requirements.txt and tagebuch.txt
+			Started work on Moodle.py
+				Created the MoodleSession class with a login function
