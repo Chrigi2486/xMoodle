@@ -8,3 +8,8 @@ Christian Cataldo
 15.05.20:	Created requirements.txt and tagebuch.txt
 			Started work on Moodle.py
 				Created the MoodleSession class with a login function
+
+18.05.20:	Moodle.py
+				Created classes MoodleCourse, MoodleSection, MoodleFolder, MoodleFile
+				Created functions for MoodleSession to get courses and their content
+				to create MoodleCourse and MoodleSection objects
