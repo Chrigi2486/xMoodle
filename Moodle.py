@@ -1,14 +1,15 @@
 from requests import Session 			#reference: https://requests.readthedocs.io/en/master/
-from requests import ConnectionError
+from requests import Timeout 			#imports the Timeout error class
 from bs4 import BeautifulSoup as BS 	#reference: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 
 
-# All html reference https://moodle.ksz.ch by viewing page source
+# All html reference from https://moodle.ksz.ch by viewing page source
 
 class MoodleSession(Session):
 	'''
 	This inherits from requests.Session() and will be the Session used to get information from Moodle
 	'''
+	DEFAULT_TIMEOUT = 5
 
 	def __init__(self, session_urls, *args, **kwargs):
 		'''
@@ -20,6 +21,25 @@ class MoodleSession(Session):
 
 		Session.__init__(self, *args, **kwargs)
 
+
+	def get_page(self, url, times=0, timeout=DEFAULT_TIMEOUT):
+		'''
+		This function will act as self.get() but will include a default timeout and handler
+		'''
+		
+		try:
+			with self.get(url, timeout=timeout) as page:
+				return(page)
+
+		except Timeout: 	#If a Timeout occurs, it will retry 3 times before raising an error
+			print('timeout', times, timeout)
+			if times == 3:
+				raise ConnectionError()
+
+			self.get_page(url, times=(times+1))
+
+
+
 	def login(self, logindata):
 		'''
 		Logs into the provided account
@@ -29,7 +49,7 @@ class MoodleSession(Session):
 			'''
 			Retrieve a valid logintoken to use as authentication
 			'''
-			with self.get(self.login_url) as login_page:
+			with self.get_page(self.login_url) as login_page:
 				return(BS(login_page.text, 'html.parser').find(attrs={'name': 'logintoken'})['value'])
 
 		def post_logindata():
@@ -42,7 +62,7 @@ class MoodleSession(Session):
 			'''
 			Checks if the Session has been authenticated
 			'''
-			with self.get(self.home_url) as home_page:
+			with self.get_page(self.home_url) as home_page:
 				if home_page.url == self.login_url: # Checks if the authentication was successful
 					return False
 				return True
@@ -57,36 +77,42 @@ class MoodleSession(Session):
 		'''
 		Gets all the courses available for the student
 		'''
-		with self.get(self.home_url) as homepage:
+		with self.get_page(self.home_url) as homepage:
 			course_list = BS(homepage.text, 'html.parser').find_all('a')
 			courses = []
 			for course in course_list: #Creates a new Course object for each course found
 				if 'course' not in course['href']:
 					continue
-				new_course = MoodleCourse()
-				new_course.url = course['href']
-				new_course.name = course.find(class_='media-body').string
+				new_course = MoodleCourse(course['href'], course.find(class_='media-body').string)
 				courses.append(new_course)
-			return(courses) #returns a list of courses
+		return(courses) #returns a list of courses
 
 	def get_course_content(self, course):
 		'''
 		Retrieves all the content of the given course
 		'''
-		with self.get(course.url) as coursepage:
+		with self.get_page(course.url) as coursepage:
 			page_items = BS(coursepage.text, 'html.parser').find_all('a')
-			for item in page_items: #Creates a new Section object for all each Section
-				if 'section' in item['href']:
+			for item in page_items: #This goes through all URLs in the course and finds any relevent URL
+				
+				if 'section' in item['href']: 	#Creates a new Section object for each Section
 					if item.string == None:
 						continue
-					section = MoodleSection(item.string, item['href'])
+					section = MoodleSection(item['href'], item.string)
 					course.sections.append(section)
 
-				# Add subsections
+				elif 'resource' in item['href']:#Creates a new File object for each File
+					file = MoodleFile(item['href'], item.find(class_='instancename').contents[0], course.sections[-1].name)
+					course.sections[-1].files.append(file)
 
-				# Add folders to course
+				elif 'folder' in item['href']: 	#Creates a new Folder object for each Folder
+					folder = MoodleFolder(item['href'], item.find(class_='instancename').contents[0])
+					course.folders.append(folder)
 
-				# Add files to course in sections
+
+
+		def get_file(self, file):
+			pass
 
 
 
@@ -97,14 +123,15 @@ class MoodleCourse:
 	'''
 	This will be the course class holding neccesary information for the moodle courses
 	'''
-	def __init__(self, url='', name='', sections=[], files=[]):
+	def __init__(self, url: str, name: str, sections: list = None, folders: list = None, files: list = None):
 		'''
 		Sets default variables if none are given
 		'''
 		self.url = url
 		self.name = name
-		self.sections = sections
-		self.files = files
+		self.sections = (list() if sections is None else sections) 	#This fixes the problem with all objects having a list with the same memory pointer resulting in having the exact same list
+		self.folders = (list() if folders is None else folders)
+		self.files = (list() if files is None else files)
 
 	def from_dict(self, course):
 		'''
@@ -112,57 +139,60 @@ class MoodleCourse:
 		'''
 		self.url = course['url']
 		self.name = course['name']
-		self.sections = course['sections']
-		self.files = course['files']
+		self.sections = list()
+		self.folders = list()
+		self.files = list()
 
 
 class MoodleSection:
 	'''
 	This is a class holding neccesary information for the moodle course sections
 	'''
-	def __init__(self, name='', url='', subsections=[], files=[]):
+	def __init__(self, url: str, name: str, subsections: list = None, folders: list = None, files: list = None):
 		'''
 		Sets default variables if none are given
 		'''
-		self.name = name
 		self.url = url
-		self.subsections = subsections
-		self.files = files
+		self.name = name
+		self.subsections = (list() if subsections is None else subsections)
+		self.folders = (list() if folders is None else folders)
+		self.files = (list() if files is None else files)
 
 	def get_files(self): # Needs test
 		'''
 		Retrieves all files in the section and in all sections within it
 		'''
-		subsection_files
+		subsection_files = []
 		for subsection in self.subsections:
 			child_files = subsection.get_files()
 			for child_file in child_files:
 				child_file.path = f'{self.name}/{child_file.path}'
-				files.append(child_file)
+				subsection_files.append(child_file)
+
 
 		return(self.files + subsection_files) # Returs a list of all the sections files including files of subsections
 
 
+class MoodleFolder:
+	def __init__(self, url: str, name: str, subfolders: list = None, files: list = None):
+		'''
+		Sets default variables if none are given
+		'''
+		self.url = url
+		self.name = name
+		self.subfolders = (list() if subfolders is None else subfolders)
+		self.files = (list() if files is None else files)
+
 
 class MoodleFile:
-	def __init__(self, name='', url='', path=''):
+	def __init__(self, url: str, name: str = None, path: str = None):
 		'''
 		Sets default variables if none are given
 		'''
-		self.name = name
 		self.url = url
+		self.name = name
 		self.path = path
 
-
-class MoodleFolder:
-	def __init__(self, name='', url='', subsfolders=[], files=[]):
-		'''
-		Sets default variables if none are given
-		'''
-		self.name = name
-		self.url = url
-		self.subfolders = subfolders
-		self.files = files
 
 
 class IncorrectLogindata(Exception): 	#Handling and raising exceptions reference: https://docs.python.org/3/tutorial/errors.html
