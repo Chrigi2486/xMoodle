@@ -5,11 +5,20 @@ Christian Cataldo
 12.05.20: 	Teams Anruf mit Herr Kälin
 			Anmeldeformular ausgefüllt
 
-15.05.20:	Created requirements.txt and tagebuch.txt
-			Started work on Moodle.py
-				Created the MoodleSession class with a login function
+15.05.20:	Ich habe requirements.txt und tagebuch.txt erstellt
+			Ich habe mit Moodle.py angefangen
+				Erstellte die MoodleSession Klasse mit einer 'einloggen' Funktion
 
 18.05.20:	Moodle.py
-				Created classes MoodleCourse, MoodleSection, MoodleFolder, MoodleFile
-				Created functions for MoodleSession to get courses and their content
-				to create MoodleCourse and MoodleSection objects
+				Erstellte die Klassen MoodleCourse, MoodleSection, MoodleFolder und MoodleFile
+				Erstellte Funktionen für MoodleSession um die Kursen und deren Inhalt zu holen
+				um MoodleCourse und MoodleSection Objekte zu erstellen
+
+19.05.20:	Moodle.py
+				Behob ein Problem indem alle MoodleCourse Objekte genau die gleichen Listen hatten (gleiche 'memory pointer')
+				MoodleSession kann jetzt MoodleFolder and MoodleFile Objekte erstellen
+
+23.05.20:	Moodle.py
+				Erstellte eine Funktion, der einen standard Timeout macht für alle 'get requests'
+			tagebuch.txt
+				Ich habe alles übersetzt
