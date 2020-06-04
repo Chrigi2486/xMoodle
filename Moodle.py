@@ -1,17 +1,21 @@
-from requests import Session 			#reference: https://requests.readthedocs.io/en/master/
-from requests import Timeout 			#imports the Timeout error class
+from aiohttp import ClientSession 		#reference: https://docs.aiohttp.org/en/stable/client_reference.html
+from aiohttp import ClientTimeout
+# from requests import Timeout 			#imports the Timeout error class
 from bs4 import BeautifulSoup as BS 	#reference: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 from urllib.parse import unquote 		#reference: https://stackoverflow.com/questions/11768070/transform-url-string-into-normal-string-in-python-20-to-space-etc
 import os
+import asyncio
+
 
 
 # All html reference from https://moodle.ksz.ch by viewing page source
 
-class MoodleSession(Session):
+class MoodleSession(ClientSession):
 	'''
 	This inherits from requests.Session() and will be the Session used to get information from Moodle
 	'''
-	DEFAULT_TIMEOUT = 5
+	DEFAULT_TIMEOUT = 10.00
+	testsession_url = 'https://moodle.ksz.ch/login/index.php?testsession=654'
 
 	def __init__(self, session_urls, *args, **kwargs):
 		'''
@@ -21,52 +25,53 @@ class MoodleSession(Session):
 		self.home_url = session_urls['home']
 		self.login_url = session_urls['login']
 
-		Session.__init__(self, *args, **kwargs)
+		super().__init__(*args, timeout=ClientTimeout(self.DEFAULT_TIMEOUT),**kwargs)
 
 
-	def get_page(self, url, times=0, timeout=DEFAULT_TIMEOUT):
-		'''
-		This function will act as self.get() but will include a default timeout and handler
-		'''
+	# def get_page(self, url, times=0, timeout=DEFAULT_TIMEOUT):
+	# 	'''
+	# 	This function will act as self.get() but will include a default timeout and handler
+	# 	'''
 		
-		try:
-			with self.get(url, timeout=timeout) as page:
-				return(page)
+	# 	try:
+	# 		with self.get(url, timeout=timeout) as page:
+	# 			return(page)
 
-		except Timeout: 	#If a Timeout occurs, it will retry 3 times before raising an error
-			print('timeout', times, timeout)
-			if times == 3:
-				raise ConnectionError()
+	# 	except Timeout: 	#If a Timeout occurs, it will retry 3 times before raising an error
+	# 		print('timeout', times, timeout)
+	# 		if times == 3:
+	# 			raise ConnectionError()
 
-			self.get_page(url, times=(times+1))
+	# 		self.get_page(url, times=(times+1))
 
 
 
-	def login(self, logindata):
+	async def login(self, logindata):
 		'''
 		Logs into the provided account
 		logindata is a dict that consists of username and password
 		'''
-		def get_logintoken():
+		async def get_logintoken():
 			'''
 			Retrieve a valid logintoken to use as authentication
 			'''
-			with self.get_page(self.login_url) as login_page:
-				return(BS(login_page.text, 'html.parser').find(attrs={'name': 'logintoken'})['value'])
+			async with self.get(self.login_url) as login_page:
+				return(BS((await login_page.text()), 'html.parser').find(attrs={'name': 'logintoken'})['value'])
 
-		def post_logindata():
+		async def post_logindata():
 			'''
 			Sends the logindata to Moodle to authenticate the Session
 			and checks if the Session has been authenticated
 			'''
-			with self.post(self.login_url, data=logindata) as home_page:
+			await self.post(self.login_url, data=logindata)
+			async with self.get(self.testsession_url) as home_page:
 				if home_page.url == self.login_url: # Checks if the authentication was successful
 					return False
 				return True
 
 
-		logindata['logintoken'] = get_logintoken()
-		if not post_logindata():
+		logindata['logintoken'] = await get_logintoken()
+		if not await post_logindata():
 			raise IncorrectLogindata()
 
 
