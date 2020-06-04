@@ -22,3 +22,9 @@ Christian Cataldo
 				Erstellte eine Funktion, der einen standard Timeout macht für alle 'get requests'
 			tagebuch.txt
 				Ich habe alles übersetzt
+
+04.06.20:	Moodle.py
+				Verkürzte die login Prozess, indem ich einen unwichtigen^m Schritt entfernt habe
+				Erstellte eine Funktion um ein Datei herunterzuladen
+			Ich habe mir überlegt, ob ich die requests mit aiohttp statt requests machen sollte, damit es asynchron is und dabei schneller
+			Neues Branch auf GitHub erstellt um aiohttp einzusetzen
