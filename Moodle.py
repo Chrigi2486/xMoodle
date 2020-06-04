@@ -55,21 +55,16 @@ class MoodleSession(Session):
 		def post_logindata():
 			'''
 			Sends the logindata to Moodle to authenticate the Session
+			and checks if the Session has been authenticated
 			'''
-			self.post(self.login_url, data=logindata)
-
-		def check_login():
-			'''
-			Checks if the Session has been authenticated
-			'''
-			with self.get_page(self.home_url) as home_page:
+			with self.post(self.login_url, data=logindata) as home_page:
 				if home_page.url == self.login_url: # Checks if the authentication was successful
 					return False
 				return True
 
+
 		logindata['logintoken'] = get_logintoken()
-		post_logindata()
-		if not check_login():
+		if not post_logindata():
 			raise IncorrectLogindata()
 
 
@@ -111,7 +106,7 @@ class MoodleSession(Session):
 
 
 
-		def get_file(self, file):
+		def download_file(self, base_path, file):
 			pass
 
 
