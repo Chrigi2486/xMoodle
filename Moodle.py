@@ -1,6 +1,8 @@
 from requests import Session 			#reference: https://requests.readthedocs.io/en/master/
 from requests import Timeout 			#imports the Timeout error class
 from bs4 import BeautifulSoup as BS 	#reference: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
+from urllib.parse import unquote 		#reference: https://stackoverflow.com/questions/11768070/transform-url-string-into-normal-string-in-python-20-to-space-etc
+import os
 
 
 # All html reference from https://moodle.ksz.ch by viewing page source
@@ -106,9 +108,16 @@ class MoodleSession(Session):
 
 
 
-		def download_file(self, base_path, file):
-			pass
-
+	def download_file(self, file, base_path):
+		'''
+		Downloads a given file to the base path given
+		'''
+		with self.get_page(file.url) as file_page:
+			path = f'{base_path}/{file.path}/{unquote(str(file_page.url).split("/0/")[1])}'
+			os.makedirs(os.path.dirname(path), exist_ok=True) 	#https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
+			with open(path, 'wb') as file:
+				file.write(file_page.content)
+		return(path)
 
 
 
