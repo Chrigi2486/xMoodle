@@ -118,7 +118,7 @@ class MoodleSession(ClientSession):
 		Downloads a given file to the base path given
 		'''
 		with self.get_page(file.url) as file_page:
-			path = f'{base_path}/{file.path}/{unquote(str(file_page.url).split("/0/")[1])}'
+			path = f'{base_path}/{file.path}/{unquote(str(file_page.url).split("/")[-1])}'
 			os.makedirs(os.path.dirname(path), exist_ok=True) 	#https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
 			with open(path, 'wb') as file:
 				file.write(file_page.content)
