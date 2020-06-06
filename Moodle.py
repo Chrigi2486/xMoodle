@@ -1,6 +1,5 @@
 from aiohttp import ClientSession 		#reference: https://docs.aiohttp.org/en/stable/client_reference.html
 from aiohttp import ClientTimeout
-# from requests import Timeout 			#imports the Timeout error class
 from bs4 import BeautifulSoup as BS 	#reference: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 from urllib.parse import unquote 		#reference: https://stackoverflow.com/questions/11768070/transform-url-string-into-normal-string-in-python-20-to-space-etc
 import os
@@ -28,23 +27,6 @@ class MoodleSession(ClientSession):
 		super().__init__(*args, timeout=ClientTimeout(self.DEFAULT_TIMEOUT),**kwargs)
 
 
-	# def get_page(self, url, times=0, timeout=DEFAULT_TIMEOUT):
-	# 	'''
-	# 	This function will act as self.get() but will include a default timeout and handler
-	# 	'''
-		
-	# 	try:
-	# 		with self.get(url, timeout=timeout) as page:
-	# 			return(page)
-
-	# 	except Timeout: 	#If a Timeout occurs, it will retry 3 times before raising an error
-	# 		print('timeout', times, timeout)
-	# 		if times == 3:
-	# 			raise ConnectionError()
-
-	# 		self.get_page(url, times=(times+1))
-
-
 
 	async def login(self, logindata):
 		'''
@@ -63,9 +45,9 @@ class MoodleSession(ClientSession):
 			Sends the logindata to Moodle to authenticate the Session
 			and checks if the Session has been authenticated
 			'''
-			await self.post(self.login_url, data=logindata)
+			await self.post(self.login_url, data=logindata, allow_redirects=False)
 			async with self.get(self.testsession_url) as home_page:
-				if home_page.url == self.login_url: # Checks if the authentication was successful
+				if str(home_page.url) != self.home_url: # Checks if the authentication was successful
 					return False
 				return True
 
@@ -75,12 +57,12 @@ class MoodleSession(ClientSession):
 			raise IncorrectLogindata()
 
 
-	def get_courses(self):
+	async def get_courses(self):
 		'''
 		Gets all the courses available for the student
 		'''
-		with self.get_page(self.home_url) as homepage:
-			course_list = BS(homepage.text, 'html.parser').find_all('a')
+		async with self.get(self.home_url) as homepage:
+			course_list = BS(await homepage.text(), 'html.parser').find_all('a')
 			courses = []
 			for course in course_list: #Creates a new Course object for each course found
 				if 'course' not in course['href']:
@@ -89,12 +71,12 @@ class MoodleSession(ClientSession):
 				courses.append(new_course)
 		return(courses) #returns a list of courses
 
-	def get_course_content(self, course):
+	async def get_course_content(self, course):
 		'''
 		Retrieves all the content of the given course
 		'''
-		with self.get_page(course.url) as coursepage:
-			page_items = BS(coursepage.text, 'html.parser').find_all('a')
+		async with self.get(course.url) as coursepage:
+			page_items = BS(await coursepage.text(), 'html.parser').find_all('a')
 			for item in page_items: #This goes through all URLs in the course and finds any relevent URL
 				
 				if 'section' in item['href']: 	#Creates a new Section object for each Section
@@ -113,15 +95,16 @@ class MoodleSession(ClientSession):
 
 
 
-	def download_file(self, file, base_path):
+	async def download_file(self, file, base_path):
 		'''
 		Downloads a given file to the base path given
 		'''
-		with self.get_page(file.url) as file_page:
+		async with self.get(file.url) as file_page: 	#https://www.youtube.com/watch?v=E_oIU4IU2W8
 			path = f'{base_path}/{file.path}/{unquote(str(file_page.url).split("/")[-1])}'
 			os.makedirs(os.path.dirname(path), exist_ok=True) 	#https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
+			content = await file_page.read()
 			with open(path, 'wb') as file:
-				file.write(file_page.content)
+				file.write(content)
 		return(path)
 
 
