@@ -1,194 +1,154 @@
-from aiohttp import ClientSession 		#reference: https://docs.aiohttp.org/en/stable/client_reference.html
-from aiohttp import ClientTimeout
-from bs4 import BeautifulSoup as BS 	#reference: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
-from urllib.parse import unquote 		#reference: https://stackoverflow.com/questions/11768070/transform-url-string-into-normal-string-in-python-20-to-space-etc
-import os
-import asyncio
+"""
+This file contains the MoodleSession class and all Exception classes
+"""
 
+import os
+from urllib.parse import unquote        # reference: https://stackoverflow.com/questions/11768070/transform-url-string-into-normal-string-in-python-20-to-space-etc
+from datetime import datetime           # reference: https://docs.python.org/3/library/datetime.html
+
+from bs4 import BeautifulSoup as BS     # reference: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
+from aiohttp import ClientSession       # reference: https://docs.aiohttp.org/en/stable/client_reference.html
+from aiohttp import ClientTimeout
+
+from MoodleDataTypes import (
+    MoodleCourse, MoodleSection,
+    MoodleFolder, MoodleFile,
+    MoodleAssignment, MoodleUrl
+)
 
 
 # All html reference from https://moodle.ksz.ch by viewing page source
 
 class MoodleSession(ClientSession):
-	'''
-	This inherits from requests.Session() and will be the Session used to get information from Moodle
-	'''
-	DEFAULT_TIMEOUT = 10.00
-	testsession_url = 'https://moodle.ksz.ch/login/index.php?testsession=654'
+    """
+    Inherits from aiohttp.ClientSession and is used to access Moodle
+    """
+    DEFAULT_TIMEOUT = 0.00
 
-	def __init__(self, session_urls, *args, **kwargs):
-		'''
-		Setting variables
-		session_urls is a dict that consists of home_url and login_url
-		'''
-		self.home_url = session_urls['home']
-		self.login_url = session_urls['login']
+    def __init__(self, home_url, login_url, *args, **kwargs):
+        """
+        The constructor for MoodleSession
 
-		super().__init__(*args, timeout=ClientTimeout(self.DEFAULT_TIMEOUT),**kwargs)
+        Parameters:
+            home_url (str): The URL you get after you login
+            login_url (str): The login URL
+        """
+        self.home_url = home_url
+        self.login_url = login_url
 
+        super().__init__(*args,
+                         timeout=ClientTimeout(self.DEFAULT_TIMEOUT),
+                         **kwargs)
 
+    async def login(self, logindata) -> None:
+        """
+        Authenticates the MoodleSession with the provided logindata
 
-	async def login(self, logindata):
-		'''
-		Logs into the provided account
-		logindata is a dict that consists of username and password
-		'''
-		async def get_logintoken():
-			'''
-			Retrieve a valid logintoken to use as authentication
-			'''
-			async with self.get(self.login_url) as login_page:
-				return(BS((await login_page.text()), 'html.parser').find(attrs={'name': 'logintoken'})['value'])
+        Parameters:
+            logindata (dict): contains 'username' and 'password'
+                              which are used to authenticate
+        """
+        async def get_logintoken() -> str:
+            """
+            Retrieves a valid logintoken to use for authentication
 
-		async def post_logindata():
-			'''
-			Sends the logindata to Moodle to authenticate the Session
-			and checks if the Session has been authenticated
-			'''
-			await self.post(self.login_url, data=logindata, allow_redirects=False)
-			async with self.get(self.testsession_url) as home_page:
-				if str(home_page.url) != self.home_url: # Checks if the authentication was successful
-					return False
-				return True
+            Returns:
+                str: A valid logintoken
+            """
+            async with self.get(self.login_url) as login_page:
+                login_html = BS((await login_page.text()), 'html.parser')
+                return login_html.find(attrs={'name': 'logintoken'})['value']
 
+        async def post_logindata() -> bool:
+            """
+            Sends a POST request to authenticate the Session
+            and checks if it was successful
 
-		logindata['logintoken'] = await get_logintoken()
-		if not await post_logindata():
-			raise IncorrectLogindata()
+            Returns:
+                bool: If the authentication was successful
+            """
+            await self.post(self.login_url, data=logindata, allow_redirects=False)  # allow redirects is set to false as to simulate this process manually as otherwise it doesn't work
 
+            async with self.get(self.home_url) as home_page:
+                if str(home_page.url) != self.home_url:  # Checks if the authentication was successful
+                    return False
+                return True
 
-	async def get_courses(self):
-		'''
-		Gets all the courses available for the student
-		'''
-		async with self.get(self.home_url) as homepage:
-			course_list = BS(await homepage.text(), 'html.parser').find_all('a')
-			courses = []
-			for course in course_list: #Creates a new Course object for each course found
-				if 'course' not in course['href']:
-					continue
-				new_course = MoodleCourse(course['href'], course.find(class_='media-body').string)
-				courses.append(new_course)
-		return(courses) #returns a list of courses
+        logindata['logintoken'] = await get_logintoken()  # Gets the logintoken
+        if not await post_logindata():  # Posts the logindata
+            raise IncorrectLogindata()  # Raises an exception if the logindata was wrong
 
-	async def get_course_content(self, course):
-		'''
-		Retrieves all the content of the given course
-		'''
-		async with self.get(course.url) as coursepage:
-			page_items = BS(await coursepage.text(), 'html.parser').find_all('a')
-			for item in page_items: #This goes through all URLs in the course and finds any relevent URL
-				
-				if 'section' in item['href']: 	#Creates a new Section object for each Section
-					if item.string == None:
-						continue
-					section = MoodleSection(item['href'], item.string)
-					course.sections.append(section)
+    async def get_courses(self) -> list:
+        """
+        Gets all the courses available for the student
 
-				elif 'resource' in item['href']:#Creates a new File object for each File
-					file = MoodleFile(item['href'], item.find(class_='instancename').contents[0], course.sections[-1].name)
-					course.sections[-1].files.append(file)
+        Returns:
+            list: A list of courses
+        """
+        async with self.get(self.home_url) as homepage:
+            course_list = BS(await homepage.text(), 'html.parser').find_all('a')
+            courses = []
+            for course in course_list:  # Creates a new Course object for each course found
+                if 'course' not in course['href']:
+                    continue
+                new_course = MoodleCourse(course['href'], course.find(class_='media-body').string)
+                courses.append(new_course)
+        return courses  # returns a list of courses
 
-				elif 'folder' in item['href']: 	#Creates a new Folder object for each Folder
-					folder = MoodleFolder(item['href'], item.find(class_='instancename').contents[0])
-					course.folders.append(folder)
+    async def get_course_content(self, course: MoodleCourse) -> None:
+        """
+        Retrieves all the content of the given course
+        """
+        async with self.get(course.url) as coursepage:
+            page_items = BS(await coursepage.text(), 'html.parser').find_all('a')
+            for item in page_items:  # This goes through all URLs in the course and finds any relevent URL
 
+                if 'section' in item['href']:   # Creates a new Section object for each Section
+                    if item.string is None:
+                        continue
+                    section = MoodleSection(item['href'],
+                                            item.string.replace(':', ';'))
 
+                    course.sections.append(section)
 
-	async def download_file(self, file, base_path):
-		'''
-		Downloads a given file to the base path given
-		'''
-		async with self.get(file.url) as file_page: 	#https://www.youtube.com/watch?v=E_oIU4IU2W8
-			path = f'{base_path}/{file.path}/{unquote(str(file_page.url).split("/")[-1])}'
-			os.makedirs(os.path.dirname(path), exist_ok=True) 	#https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
-			content = await file_page.read()
-			with open(path, 'wb') as file:
-				file.write(content)
-		return(path)
+                elif 'resource' in item['href']:  # Creates a new File object for each File
+                    file = MoodleFile(item['href'],
+                                      item.find(class_='instancename').contents[0],
+                                      course.sections[-1].name)
 
+                    course.sections[-1].files.append(file)
 
+                elif 'folder' in item['href']:  # Creates a new Folder object for each Folder
+                    folder = MoodleFolder(item['href'],
+                                          item.find(class_='instancename').contents[0])
 
+                    course.folders.append(folder)
 
+                elif 'assignment' in item['href']:
+                    assignment = MoodleAssignment(item['href'],
+                                                  item.find(class_='instancename'))
 
-class MoodleCourse:
-	'''
-	This will be the course class holding neccesary information for the moodle courses
-	'''
-	def __init__(self, url: str, name: str, sections: list = None, folders: list = None, files: list = None):
-		'''
-		Sets default variables if none are given
-		'''
-		self.url = url
-		self.name = name
-		self.sections = (list() if sections is None else sections) 	#This fixes the problem with all objects having a list with the same memory pointer resulting in having the exact same list
-		self.folders = (list() if folders is None else folders)
-		self.files = (list() if files is None else files)
+    async def download_file(self, file: MoodleFile, base_path) -> str:
+        """
+        Downloads a given file to the base path given
 
-	def from_dict(self, course):
-		'''
-		Can take a dict formatted as a course and sets the variables
-		'''
-		self.url = course['url']
-		self.name = course['name']
-		self.sections = list()
-		self.folders = list()
-		self.files = list()
+        Parameters:
+            file (MoodleFile): The file to be downloaded
+            base_path (str): The path to which the file is to be downloaded
 
-
-class MoodleSection:
-	'''
-	This is a class holding neccesary information for the moodle course sections
-	'''
-	def __init__(self, url: str, name: str, subsections: list = None, folders: list = None, files: list = None):
-		'''
-		Sets default variables if none are given
-		'''
-		self.url = url
-		self.name = name
-		self.subsections = (list() if subsections is None else subsections)
-		self.folders = (list() if folders is None else folders)
-		self.files = (list() if files is None else files)
-
-	def get_files(self): # Needs test
-		'''
-		Retrieves all files in the section and in all sections within it
-		'''
-		subsection_files = []
-		for subsection in self.subsections:
-			child_files = subsection.get_files()
-			for child_file in child_files:
-				child_file.path = f'{self.name}/{child_file.path}'
-				subsection_files.append(child_file)
+        Returns:
+            str: The final path of the file
+        """
+        async with self.get(file.url) as file_page:  # https://www.youtube.com/watch?v=E_oIU4IU2W8
+            path = f'{base_path}/{file.path}/{unquote(str(file_page.url).split("/")[-1])}'
+            os.makedirs(os.path.dirname(path), exist_ok=True)  # https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
+            content = await file_page.read()
+            with open(path, 'wb') as new_file:
+                new_file.write(content)
+        return path
 
 
-		return(self.files + subsection_files) # Returs a list of all the sections files including files of subsections
-
-
-class MoodleFolder:
-	def __init__(self, url: str, name: str, subfolders: list = None, files: list = None):
-		'''
-		Sets default variables if none are given
-		'''
-		self.url = url
-		self.name = name
-		self.subfolders = (list() if subfolders is None else subfolders)
-		self.files = (list() if files is None else files)
-
-
-class MoodleFile:
-	def __init__(self, url: str, name: str = None, path: str = None):
-		'''
-		Sets default variables if none are given
-		'''
-		self.url = url
-		self.name = name
-		self.path = path
-
-
-
-class IncorrectLogindata(Exception): 	#Handling and raising exceptions reference: https://docs.python.org/3/tutorial/errors.html
-	'''
-	Exception raised when the logindata is incorrect and authentication fails
-	'''
-	pass
+class IncorrectLogindata(Exception):  # Handling and raising exceptions reference: https://docs.python.org/3/tutorial/errors.html
+    """
+    Exception raised when the logindata is incorrect and authentication fails
+    """
