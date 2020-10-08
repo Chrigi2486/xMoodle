@@ -98,10 +98,15 @@ class MoodleSession(ClientSession):
     async def get_course_content(self, course: MoodleCourse) -> None:
         """
         Retrieves all the content of the given course
+
+        Parameters:
+            course (MoodleCourse): The course from which to get all content
         """
         async with self.get(course.url) as coursepage:
             page_items = BS(await coursepage.text(), 'html.parser').find_all('a')
             for item in page_items:  # This goes through all URLs in the course and finds any relevent URL
+
+                # Perhaps split the url and check if one of the splits is section, resource, url, ...
 
                 if 'section' in item['href']:   # Creates a new Section object for each Section
                     if item.string is None:
@@ -122,11 +127,13 @@ class MoodleSession(ClientSession):
                     folder = MoodleFolder(item['href'],
                                           item.find(class_='instancename').contents[0])
 
-                    course.folders.append(folder)
+                    course.sections[-1].folders.append(folder)
 
                 elif 'assignment' in item['href']:
                     assignment = MoodleAssignment(item['href'],
                                                   item.find(class_='instancename'))
+
+                    course.sections[-1].assignments.append(assignment)
 
     async def download_file(self, file: MoodleFile, base_path) -> str:
         """
@@ -146,6 +153,18 @@ class MoodleSession(ClientSession):
             with open(path, 'wb') as new_file:
                 new_file.write(content)
         return path
+
+    async def send_file(self, file_path, assignment: MoodleAssignment):
+        """
+        Used to upload a file to a target assignment
+
+        Parameters:
+            file (str): path of the file to send
+            assignment (MoodleAssignment): The target assignment
+        """
+        if not os.path.exists(file_path):  # Maybe don't check but let it raise the exception
+            return
+        await self.post(assignment.url, data={'file': open(file_path, 'rb')})  # Not tested
 
 
 class IncorrectLogindata(Exception):  # Handling and raising exceptions reference: https://docs.python.org/3/tutorial/errors.html
