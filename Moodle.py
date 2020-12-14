@@ -108,32 +108,62 @@ class MoodleSession(ClientSession):
 
                 # Perhaps split the url and check if one of the splits is section, resource, url, ...
 
-                if 'section' in item['href']:   # Creates a new Section object for each Section
+                if 'section' in item['href']:   # Creates a new MoodleSection instance for each Section
                     if item.string is None:
                         continue
                     section = MoodleSection(item['href'],
-                                            item.string.replace(':', ';'))
+                                            MoodleParser.parse_windows(item.string))
 
                     course.sections.append(section)
 
-                elif 'resource' in item['href']:  # Creates a new File object for each File
+                elif 'resource' in item['href']:  # Creates a new MoodleFile instance for each File
                     file = MoodleFile(item['href'],
                                       item.find(class_='instancename').contents[0],
                                       course.sections[-1].name)
 
-                    course.sections[-1].files.append(file)
+                    section.files.append(file)
 
-                elif 'folder' in item['href']:  # Creates a new Folder object for each Folder
+                elif 'folder' in item['href']:  # Creates a new MoodleFolder instance for each Folder
                     folder = MoodleFolder(item['href'],
                                           item.find(class_='instancename').contents[0])
 
-                    course.sections[-1].folders.append(folder)
+                    await self.get_folder_content(section, folder)
 
-                elif 'assignment' in item['href']:
+                    section.folders.append(folder)
+
+                elif 'assignment' in item['href']:  # Creates a new MoodleAssignment instance for each Assignment
                     assignment = MoodleAssignment(item['href'],
-                                                  item.find(class_='instancename'))
+                                                  item.find(class_='instancename').contents[0])
 
-                    course.sections[-1].assignments.append(assignment)
+                    section.assignments.append(assignment)
+
+                elif 'url' in item['href']:  # Creates a new MoodleUrl instance for each Url
+                    file = MoodleFile(item['href'],
+                                      item.find(class_='instancename').contents[0],
+                                      course.sections[-1].name)
+
+                    section.files.append(file)
+
+    async def get_folder_content(self, section: MoodleSection, folder: MoodleFolder, parentfolder=False):
+        async with self.get(folder.url) as folderpage:
+            page_items = BS(await folderpage.text(), 'html.parser').find_all('a')
+
+            for item in page_items:
+                if '/content/' in item['href']:
+                    file = MoodleFile(item['href'].split('?')[0],
+                                      item.find(class_='fp-filename').contents[0],
+                                      f'{section.name}/{folder.path + "/" if folder.path else ""}{folder.name}')
+
+                    folder.files.append(file)
+                    section.files.append(file)  # Simplify downloading and presentation
+
+                # Get the file content for subfiles
+                # elif '???' in item['href']:
+                #     subfolder = MoodleFolder(item['href'],
+                #                              item.find(class_='???').contents[0])
+
+                #     await self.get_folder_content(subfolder, f'{folder.path + "/" if folder.path else ""}{folder.name}')
+                #     folder.folders.append(subfolder)
 
     async def download_file(self, file: MoodleFile, base_path) -> str:
         """
@@ -154,6 +184,26 @@ class MoodleSession(ClientSession):
                 new_file.write(content)
         return path
 
+    async def download_url(self, url: MoodleUrl, base_path) -> str:
+        """
+        Downloads a given url to the base path given
+
+        Parameters:
+            url (MoodleUrl): The url to be downloaded
+            base_path (str): The path to which the url is to be downloaded
+
+        Returns:
+            str: The final path of the url
+        """
+        async with self.get(url.url) as file_page:
+            path = f'{base_path}/{url.path}/{MoodleParser.parse_windows(url.name)}.url'
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            content = BS(await file_page.read(), 'html.parser')
+            redirect_url = content.find_all(class_='urlworkaround')[0].a['href']
+            with open(path, 'w') as new_file:
+                new_file.write(f'[InternetShortcut]\nURL={redirect_url}')
+        return path
+
     async def send_file(self, file_path, assignment: MoodleAssignment):
         """
         Used to upload a file to a target assignment
@@ -171,3 +221,26 @@ class IncorrectLogindata(Exception):  # Handling and raising exceptions referenc
     """
     Exception raised when the logindata is incorrect and authentication fails
     """
+
+
+class MoodleParser:
+    """
+    This Class will contain any parsers needed by MoodleSession
+    """
+    windows_reserved_chars = {  # https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+        '<': '',
+        '>': '',
+        ':': ';',
+        '"': '\'',
+        '/': ',',
+        '\\': ',',
+        '|': ',',
+        '?': '.',
+        '*': ''
+    }
+
+    @staticmethod
+    def parse_windows(string):
+        for char, newchar in MoodleParser.windows_reserved_chars.items():
+            string = string.replace(char, newchar)
+        return string
