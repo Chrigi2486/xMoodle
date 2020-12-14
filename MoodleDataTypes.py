@@ -5,129 +5,85 @@ This file contains all the Data Types used by MoodleSession
 from datetime import datetime
 
 
-class MoodleCourse:
+class MoodleData:
+    """
+    This class will the the base class for Moodle Data Types
+    """
+    def to_dict(self) -> dict:
+        """
+        Creates a dict with all neccesary variables of the Data Type
+
+        Returns:
+            dict: A dict that can be used to replicate the Data Type instance
+        """
+        data_dict = dict()
+        for key, value in self.__dict__.items():
+            if isinstance(value, list):
+                value = [item.to_dict() for item in value]
+            data_dict[key] = value
+
+        return data_dict
+
+    @classmethod
+    def from_dict(cls, data_dict: dict):
+        """
+        Can take a dict formatted as a Data Type and
+        returns an instance of the replicated Data Type
+
+        Parameters:
+            dict: A dict formatted for a Data Type
+
+        Returns:
+            cls: Returns an instance of the Data Type
+        """
+        self = cls.__new__(cls)  # Creates a new instance of the class without activating __init__
+
+        for key, value in data_dict.items():
+            if isinstance(value, list):  # checks if the value is a dict, indicating that it's a class
+                value = [globals()[item['type']].from_dict(item) for item in value]  # dunno if using globals() is good practice https://www.xspdf.com/resolution/51693418.html#:~:text=Python%20get%20class%20from%20module,somemodule.
+            self.__setattr__(key, value)
+        return self
+# make sure every subclass has an attr called type with the same name as the class
+
+
+class MoodleCourse(MoodleData):
     """
     This class holds neccesary information for a moodle course
     """
     def __init__(self, url: str, name: str, sections: list = None):
         self.url = url
         self.name = name
-        self.sections = (list() if sections is None else sections)  # This fixes the problem with all objects having a list with the same memory pointer resulting in having the exact same list
-
-    def to_dict(self) -> dict:
-        """
-        Creates a dict with all neccesary variables of the course
-
-        Returns:
-            dict: A dict that can be used to create a MoodleCourse instance
-        """
-        sections = [section.to_dict() for section in self.sections]
-        return {'url': self.url, 'name': self.name, 'sections': sections}
-
-    @classmethod
-    def from_dict(cls, course_dict: dict):
-        """
-        Can take a dict formatted as a course and returns an instance of MoodleCourse
-
-        Parameters:
-            dict: A dict formatted for MoodleCourse
-
-        Returns:
-            MoodleCourse: Returns a MoodleCourse instance
-        """
-        url = course_dict['url']
-        name = course_dict['name']
-        sections = [MoodleSection.from_dict(section) for section in course_dict['sections']]
-
-        return cls(url, name, sections=sections)
+        self.sections = sections or list()
+        self.type = 'MoodleCourse'
 
 
-class MoodleSection:
+class MoodleSection(MoodleData):
     """
     This class holds neccesary information for a moodle course section
     """
     def __init__(self, url: str, name: str, folders: list = None, files: list = None, assignments: list = None):
         self.url = url
         self.name = name
-        self.folders = (list() if folders is None else folders)
-        self.files = (list() if files is None else files)
-        self.assignments = (list() if assignments is None else assignments)
-
-    def to_dict(self) -> dict:
-        """
-        Creates a dict with all neccesary variables of the section
-
-        Returns:
-            dict: A dict that can be used to create a MoodleSection instance
-        """
-        folders = [folder.to_dict() for folder in self.folders]
-        files = [file.to_dict() for file in self.files]
-        assignments = [assignment.to_dict() for assignment in self.assignments]
-
-        return {'url': self.url, 'name': self.name, 'folders': folders, 'files': files, 'assignments': assignments}
-
-    @classmethod
-    def from_dict(cls, section_dict: dict):
-        """
-        Can take a dict formatted as a section and returns an instance of MoodleSection
-
-        Parameters:
-            dict: A dict formatted for MoodleSection
-
-        Returns:
-            MoodleSection: Returns a MoodleSection instance
-        """
-        url = section_dict['url']
-        name = section_dict['name']
-        folders = [MoodleFolder.from_dict(folder) for folder in section_dict['folders']]
-        files = [MoodleFile.from_dict(file) for file in section_dict['files']]
-        assignments = [MoodleAssignment.from_dict(assignment) for assignment in section_dict['assignments']]
-
-        return cls(url, name, folders=folders, files=files, assignments=assignments)
+        self.folders = folders or list()
+        self.files = files or list()
+        self.assignments = assignments or list()
+        self.type = 'MoodleSection'
 
 
-class MoodleFolder:
+class MoodleFolder(MoodleData):  # needs to be tested
     """
     This class holds neccesary information for a moodle course folder
     """
-    def __init__(self, url: str, name: str, subfolders: list = None, files: list = None):
+    def __init__(self, url: str, name: str, path: str = None, folders: list = None, files: list = None):
         self.url = url
         self.name = name
-        self.subfolders = (list() if subfolders is None else subfolders)
-        self.files = (list() if files is None else files)
-
-    def to_dict(self) -> dict:
-        """
-        Creates a dict with all neccesary variables of the folder
-
-        Returns:
-            dict: A dict that can be used to create a MoodleFolder instance
-        """
-        subfolders = [subfolder.to_dict() for subfolder in self.subfolders]
-        files = [file.to_dict() for file in self.files]
-
-        return {'url': self.url, 'name': self.name, 'subfolders': subfolders, 'files': files}
-
-    @classmethod
-    def from_dict(cls, folder_dict: dict):
-        """
-        Can take a dict formatted as a folder and returns an instance of MoodleFolder
-
-        Parameters:
-            dict: A dict formatted for MoodleFolder
-
-        Returns:
-            MoodleFolder: Returns a MoodleFolder instance
-        """
-        url = folder_dict['url']
-        name = folder_dict['name']
-        subfolders = [MoodleFolder.from_dict(subfolder) for subfolder in folder_dict['subfolders']]
-        files = [MoodleFile.from_dict(file) for file in folder_dict['files']]
-
-        return cls(url, name, subfolders=subfolders, files=files)
+        self.path = path
+        self.folders = folders or list()
+        self.files = files or list()
+        self.type = 'MoodleFolder'
 
 
-class MoodleFile:
+class MoodleFile(MoodleData):
     """
     This class holds neccesary information for a moodle file
     """
@@ -135,36 +91,10 @@ class MoodleFile:
         self.url = url
         self.name = name
         self.path = path
-
-    def to_dict(self) -> dict:
-        """
-        Creates a dict with all neccesary variables of the file
-
-        Returns:
-            dict: A dict that can be used to create a MoodleFile instance
-        """
-
-        return {'url': self.url, 'name': self.name, 'path': self.path}
-
-    @classmethod
-    def from_dict(cls, file_dict: dict):
-        """
-        Can take a dict formatted as a file and returns an instance of MoodleFile
-
-        Parameters:
-            dict: A dict formatted for MoodleFile
-
-        Returns:
-            MoodleFile: Returns a MoodleFile instance
-        """
-        url = file_dict['url']
-        name = file_dict['name']
-        path = file_dict['path']
-
-        return cls(url, name, path=path)
+        self.type = 'MoodleFile'
 
 
-class MoodleAssignment:
+class MoodleAssignment(MoodleData):  # needs to be tested
     """
     This class holds neccesary information for a moodle assignment
     """
@@ -173,68 +103,15 @@ class MoodleAssignment:
         self.name = name
         self.description = description
         self.due_date = due_date
-
-    def to_dict(self) -> dict:
-        """
-        Creates a dict with all neccesary variables of the assignment
-
-        Returns:
-            dict: A dict that can be used to create a MoodleAssignment instance
-        """
-
-        return {'url': self.url, 'name': self.name, 'description': self.description, 'due_date': self.due_date}
-
-    @classmethod
-    def from_dict(cls, assignment_dict: dict):
-        """
-        Can take a dict formatted as an assignment and returns an instance of MoodleAssignment
-
-        Parameters:
-            dict: A dict formatted for MoodleAssignment
-
-        Returns:
-            MoodleAssignment: Returns a MoodleAssignment instance
-        """
-        url = assignment_dict['url']
-        name = assignment_dict['name']
-        description = assignment_dict['description']
-        due_date = assignment_dict['due_date']
-
-        return cls(url, name, description=description, due_date=due_date)
+        self.type = 'MoodleAssignment'
 
 
-class MoodleUrl:
+class MoodleUrl(MoodleData):
     """
     This class holds neccesary information for a moodle url
     """
-    def __init__(self, url: str, name: str = None, path: str = None):
+    def __init__(self, url: str, name: str, path: str = None):
         self.url = url
         self.name = name
         self.path = path
-
-    def to_dict(self) -> dict:
-        """
-        Creates a dict with all neccesary variables of the url
-
-        Returns:
-            dict: A dict that can be used to create a MoodleUrl instance
-        """
-
-        return {'url': self.url, 'name': self.name, 'path': self.path}
-
-    @classmethod
-    def from_dict(cls, url_dict: dict):
-        """
-        Can take a dict formatted as a url and returns an instance of MoodleUrl
-
-        Parameters:
-            dict: A dict formatted for MoodleUrl
-
-        Returns:
-            MoodleUrl: Returns a MoodleUrl instance
-        """
-        url = url_dict['url']
-        name = url_dict['name']
-        path = url_dict['path']
-
-        return cls(url, name=name, path=path)
+        self.type = 'MoodleUrl'
