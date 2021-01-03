@@ -106,6 +106,11 @@ class MoodleSession(ClientSession):
             page_items = BS(await coursepage.text(), 'html.parser').find_all('a')
             for item in page_items:  # This goes through all URLs in the course and finds any relevent URL
 
+                try:
+                    item['href']
+                except KeyError:
+                    continue
+
                 # Perhaps split the url and check if one of the splits is section, resource, url, ...
 
                 if 'section' in item['href']:   # Creates a new MoodleSection instance for each Section
@@ -131,10 +136,10 @@ class MoodleSession(ClientSession):
 
                     section.folders.append(folder)
 
-                elif 'assignment' in item['href']:  # Creates a new MoodleAssignment instance for each Assignment
+                elif 'assign' in item['href']:  # Creates a new MoodleAssignment instance for each Assignment
                     assignment = MoodleAssignment(item['href'],
                                                   item.find(class_='instancename').contents[0])
-
+                    await self.get_assignment_content(assignment)
                     section.assignments.append(assignment)
 
                 elif 'url' in item['href']:  # Creates a new MoodleUrl instance for each Url
@@ -143,6 +148,15 @@ class MoodleSession(ClientSession):
                                       course.sections[-1].name)
 
                     section.files.append(file)
+
+    async def get_assignment_content(self, assignment: MoodleAssignment):
+        async with self.get(assignment.url) as assignment_page:
+            content = BS(await assignment_page.text(), 'html.parser')
+            generalinfo = content.find(class_='generaltable').find_all('tr')
+            status = generalinfo[0].td.string
+            assignment.status = status != 'No attempt'
+            due_date = generalinfo[2].td.string
+            assignment.due_date = str(datetime.strptime(due_date, '%A, %d %B %Y, %I:%M %p'))  # https://stackabuse.com/converting-strings-to-datetime-in-python/
 
     async def get_folder_content(self, section: MoodleSection, folder: MoodleFolder, parentfolder=False):
         async with self.get(folder.url) as folderpage:
@@ -204,7 +218,7 @@ class MoodleSession(ClientSession):
                 new_file.write(f'[InternetShortcut]\nURL={redirect_url}')
         return path
 
-    async def send_file(self, file_path, assignment: MoodleAssignment):
+    async def upload_file(self, file_path, assignment: MoodleAssignment):
         """
         Used to upload a file to a target assignment
 
@@ -214,7 +228,31 @@ class MoodleSession(ClientSession):
         """
         if not os.path.exists(file_path):  # Maybe don't check but let it raise the exception
             return
-        await self.post(assignment.url, data={'file': open(file_path, 'rb')})  # Not tested
+
+        async with self.get(f'{assignment.url}&action=editsubmission') as assignment_page:
+            content = BS(await assignment_page.text(), 'html.parser')
+            keys = content.select('#id_files_filemanager_fieldset > noscript')[0].div.object['data']
+            item_id = keys.split('&')[2].split('=')[1]
+            ctx_id = keys.split('&')[7].split('=')[1]
+            sesskey = keys.split('&')[9].split('=')[1]
+            userid = content.select('#page-wrapper > nav > ul.nav.navbar-nav.usernav > li:nth-child(1)')[0].div['data-userid']
+            title = file_path.split('\\')[-1] if '\\' in file_path else file_path.split('/')[-1]
+
+        async with self.post(f"{self.home_url.split('/my')[0]}?action=upload", data={
+                                              'repo_upload_file': open(file_path, 'rb'),
+                                              'sesskey': sesskey,
+                                              'repo_id': '0',
+                                              'item_id': item_id,
+                                              # 'author': userid,
+                                              'savepath': '/',
+                                              'title': title,
+                                              'ctx_id': ctx_id,
+                                              'accepted_types[]': f"[{title.split('.')[1]}]"
+                                              }) as upload:
+            print(upload.status)
+
+        async with self.post(f'{assignment.url}&lastmodified={datetime.timestamp(datetime.now())}&userid={userid}&action=savesubmission&sesskey={sesskey}&_qf__mod_assign_submission_form=1&files_filemanager=184629888&submitbutton=Save+changes') as submit:
+            print(submit.status)
 
 
 class IncorrectLogindata(Exception):  # Handling and raising exceptions reference: https://docs.python.org/3/tutorial/errors.html
