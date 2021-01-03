@@ -98,10 +98,10 @@ class MoodleAssignment(MoodleData):  # needs to be tested
     """
     This class holds neccesary information for a moodle assignment
     """
-    def __init__(self, url: str, name: str = None, description: str = None, due_date: datetime = None):
+    def __init__(self, url: str, name: str = None, status: str = None, due_date: str = None):
         self.url = url
         self.name = name
-        self.description = description
+        self.status = status
         self.due_date = due_date
         self.type = 'MoodleAssignment'
 
