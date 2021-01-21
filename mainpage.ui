@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>xMoodle</class>
+ <widget class="QWidget" name="xMoodle">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,19 +11,30 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>xMoodle</string>
   </property>
-  <widget class="QLabel" name="xMoodle">
+  <property name="windowIcon">
+   <iconset>
+    <normalon>xmoodleicon.png</normalon>
+   </iconset>
+  </property>
+  <widget class="QLabel" name="namelabel">
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>80</y>
-     <width>141</width>
-     <height>51</height>
+     <x>20</x>
+     <y>20</y>
+     <width>311</width>
+     <height>81</height>
     </rect>
    </property>
    <property name="text">
-    <string>xMoodle</string>
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>xmoodlename.png</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
    </property>
   </widget>
   <widget class="QPushButton" name="settingsButton">
@@ -65,8 +76,8 @@
    </property>
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>140</y>
+     <x>30</x>
+     <y>120</y>
      <width>141</width>
      <height>23</height>
     </rect>
@@ -75,42 +86,49 @@
     <string>Open in File Explorer</string>
    </property>
   </widget>
-  <widget class="QProgressBar" name="progressBar">
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="geometry">
-    <rect>
-     <x>580</x>
-     <y>140</y>
-     <width>181</width>
-     <height>23</height>
-    </rect>
-   </property>
-   <property name="statusTip">
-    <string/>
-   </property>
-   <property name="value">
-    <number>0</number>
-   </property>
-   <property name="textVisible">
-    <bool>false</bool>
-   </property>
-   <property name="format">
-    <string/>
-   </property>
-  </widget>
   <widget class="QPushButton" name="downloadButton">
    <property name="geometry">
     <rect>
      <x>610</x>
-     <y>110</y>
+     <y>120</y>
      <width>121</width>
      <height>23</height>
     </rect>
    </property>
    <property name="text">
     <string>Download Files</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="browserButton">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>180</x>
+     <y>120</y>
+     <width>141</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Open in Moodle</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="downloadLabel">
+   <property name="geometry">
+    <rect>
+     <x>460</x>
+     <y>150</y>
+     <width>421</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Ready</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
    </property>
   </widget>
  </widget>
