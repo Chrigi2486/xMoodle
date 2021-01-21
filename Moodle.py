@@ -95,7 +95,7 @@ class MoodleSession(ClientSession):
                 courses.append(new_course)
         return courses  # returns a list of courses
 
-    async def get_course_content(self, course: MoodleCourse) -> None:
+    async def get_course_content(self, course: MoodleCourse, files=True, assignments=True) -> None:
         """
         Retrieves all the content of the given course
 
@@ -121,14 +121,14 @@ class MoodleSession(ClientSession):
 
                     course.sections.append(section)
 
-                elif 'resource' in item['href']:  # Creates a new MoodleFile instance for each File
+                elif 'resource' in item['href'] and files:  # Creates a new MoodleFile instance for each File
                     file = MoodleFile(item['href'],
                                       item.find(class_='instancename').contents[0],
                                       course.sections[-1].name)
 
                     section.files.append(file)
 
-                elif 'folder' in item['href']:  # Creates a new MoodleFolder instance for each Folder
+                elif 'folder' in item['href'] and files:  # Creates a new MoodleFolder instance for each Folder
                     folder = MoodleFolder(item['href'],
                                           item.find(class_='instancename').contents[0])
 
@@ -136,16 +136,16 @@ class MoodleSession(ClientSession):
 
                     section.folders.append(folder)
 
-                elif 'assign' in item['href']:  # Creates a new MoodleAssignment instance for each Assignment
+                elif 'assign' in item['href'] and assignments:  # Creates a new MoodleAssignment instance for each Assignment
                     assignment = MoodleAssignment(item['href'],
                                                   item.find(class_='instancename').contents[0])
                     await self.get_assignment_content(assignment)
                     section.assignments.append(assignment)
 
-                elif 'url' in item['href']:  # Creates a new MoodleUrl instance for each Url
-                    file = MoodleFile(item['href'],
-                                      item.find(class_='instancename').contents[0],
-                                      course.sections[-1].name)
+                elif 'url' in item['href'] and files:  # Creates a new MoodleUrl instance for each Url
+                    file = MoodleUrl(item['href'],
+                                     item.find(class_='instancename').contents[0],
+                                     course.sections[-1].name)
 
                     section.files.append(file)
 
@@ -190,6 +190,10 @@ class MoodleSession(ClientSession):
         Returns:
             str: The final path of the file
         """
+        if isinstance(file, MoodleUrl):
+            await self.download_url(file, base_path)
+            return
+
         async with self.get(file.url) as file_page:  # https://www.youtube.com/watch?v=E_oIU4IU2W8
             path = f'{base_path}/{file.path}/{unquote(str(file_page.url).split("/")[-1])}'
             os.makedirs(os.path.dirname(path), exist_ok=True)  # https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
