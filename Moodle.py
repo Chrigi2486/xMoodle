@@ -130,7 +130,7 @@ class MoodleSession(ClientSession):
 
                 elif 'folder' in item['href'] and files:  # Creates a new MoodleFolder instance for each Folder
                     folder = MoodleFolder(item['href'],
-                                          item.find(class_='instancename').contents[0])
+                                          MoodleParser.parse_windows(item.find(class_='instancename').contents[0]))
 
                     await self.get_folder_content(section, folder)
 
