@@ -18,8 +18,8 @@
     <rect>
      <x>30</x>
      <y>102</y>
-     <width>55</width>
-     <height>16</height>
+     <width>71</width>
+     <height>21</height>
     </rect>
    </property>
    <property name="text">
@@ -29,10 +29,10 @@
   <widget class="QPushButton" name="pathEditButton">
    <property name="geometry">
     <rect>
-     <x>91</x>
-     <y>102</y>
+     <x>110</x>
+     <y>100</y>
      <width>75</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -43,9 +43,9 @@
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>141</y>
-     <width>51</width>
-     <height>16</height>
+     <y>151</y>
+     <width>71</width>
+     <height>21</height>
     </rect>
    </property>
    <property name="text">
@@ -55,10 +55,10 @@
   <widget class="QPushButton" name="loginEditButton">
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>190</y>
+     <x>110</x>
+     <y>200</y>
      <width>75</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -69,9 +69,9 @@
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>230</y>
-     <width>39</width>
-     <height>16</height>
+     <y>250</y>
+     <width>71</width>
+     <height>21</height>
     </rect>
    </property>
    <property name="text">
@@ -83,8 +83,8 @@
     <rect>
      <x>30</x>
      <y>70</y>
-     <width>231</width>
-     <height>18</height>
+     <width>371</width>
+     <height>21</height>
     </rect>
    </property>
    <property name="text">
@@ -116,9 +116,9 @@
    <property name="geometry">
     <rect>
      <x>330</x>
-     <y>230</y>
+     <y>250</y>
      <width>75</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -128,9 +128,9 @@
   <widget class="QListWidget" name="coursesList">
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>230</y>
-     <width>231</width>
+     <x>110</x>
+     <y>250</y>
+     <width>211</width>
      <height>111</height>
     </rect>
    </property>
@@ -141,7 +141,7 @@
      <x>330</x>
      <y>20</y>
      <width>75</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -151,9 +151,9 @@
   <widget class="QLineEdit" name="usernameInput">
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>140</y>
-     <width>231</width>
+     <x>110</x>
+     <y>150</y>
+     <width>211</width>
      <height>20</height>
     </rect>
    </property>
@@ -161,9 +161,9 @@
   <widget class="QLineEdit" name="passwordInput">
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>160</y>
-     <width>231</width>
+     <x>110</x>
+     <y>170</y>
+     <width>211</width>
      <height>20</height>
     </rect>
    </property>

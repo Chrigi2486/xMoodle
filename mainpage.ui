@@ -43,7 +43,7 @@
      <x>820</x>
      <y>10</y>
      <width>75</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -79,11 +79,11 @@
      <x>30</x>
      <y>120</y>
      <width>141</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
-    <string>Open in File Explorer</string>
+    <string>Open in Explorer</string>
    </property>
   </widget>
   <widget class="QPushButton" name="downloadButton">
@@ -92,7 +92,7 @@
      <x>610</x>
      <y>120</y>
      <width>121</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -108,7 +108,7 @@
      <x>180</x>
      <y>120</y>
      <width>141</width>
-     <height>23</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -121,7 +121,7 @@
      <x>460</x>
      <y>150</y>
      <width>421</width>
-     <height>21</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
