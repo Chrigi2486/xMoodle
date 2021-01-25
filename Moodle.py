@@ -285,4 +285,6 @@ class MoodleParser:
     def parse_windows(string):
         for char, newchar in MoodleParser.windows_reserved_chars.items():
             string = string.replace(char, newchar)
+            if string.endswith(' '):
+                string = string[:-1]
         return string
