@@ -239,24 +239,36 @@ class MoodleSession(ClientSession):
             item_id = keys.split('&')[2].split('=')[1]
             ctx_id = keys.split('&')[7].split('=')[1]
             sesskey = keys.split('&')[9].split('=')[1]
+            author = content.select('#action-menu-toggle-1 > span > span.usertext.mr-1')[0].string
             userid = content.select('#page-wrapper > nav > ul.nav.navbar-nav.usernav > li:nth-child(1)')[0].div['data-userid']
             title = file_path.split('\\')[-1] if '\\' in file_path else file_path.split('/')[-1]
+            repo_id = '5'  # content.find(class_='filemanager')['id'].split('-')[1]
+            files_filemanager = content.find(id='id_files_filemanager')['value']
 
-        async with self.post(f"{self.home_url.split('/my')[0]}?action=upload", data={
+        async with self.post(f"{self.home_url.split('/my')[0]}/repository/repository_ajax.php?action=upload", data={
                                               'repo_upload_file': open(file_path, 'rb'),
                                               'sesskey': sesskey,
-                                              'repo_id': '0',
-                                              'item_id': item_id,
-                                              # 'author': userid,
+                                              'repo_id': repo_id,
+                                              'itemid': item_id,
+                                              'author': author,
                                               'savepath': '/',
                                               'title': title,
                                               'ctx_id': ctx_id,
-                                              'accepted_types[]': f"[{title.split('.')[1]}]"
-                                              }) as upload:
-            print(upload.status)
+                                              # 'accepted_types[]': f"[.{title.split('.')[1]}]"
+                                              }) as upload_page:
+            print(upload_page.status)
+            print(await upload_page.text())
 
-        async with self.post(f'{assignment.url}&lastmodified={datetime.timestamp(datetime.now())}&userid={userid}&action=savesubmission&sesskey={sesskey}&_qf__mod_assign_submission_form=1&files_filemanager=184629888&submitbutton=Save+changes') as submit:
-            print(submit.status)
+        async with self.post(assignment.url.split('?')[0], data={'lastmodified': datetime.timestamp(datetime.now()),
+                                                                 'id': assignment.url.split('?id=')[1],
+                                                                 'userid': userid,
+                                                                 'action': 'savesubmission',
+                                                                 'sesskey': sesskey,
+                                                                 '_qf__mod_assign_submission_form': 1,
+                                                                 'files_filemanager': files_filemanager,
+                                                                 'submitbutton': 'Save changes'
+                                                                 }) as submit_page:
+            print(submit_page.status)
 
 
 class IncorrectLogindata(Exception):  # Handling and raising exceptions reference: https://docs.python.org/3/tutorial/errors.html
