@@ -5,7 +5,8 @@ import traceback
 import webbrowser
 import subprocess
 from json import load, dump
-from PyQt5.QtWidgets import QApplication, QMainWindow, QListWidgetItem, QSystemTrayIcon, QFileDialog, QLineEdit, QAction, QMenu, qApp
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QListWidgetItem, QSystemTrayIcon,  # https://doc.qt.io/qt-5/qtwidgets-module.html
+                             QFileDialog, QLineEdit, QAction, QMenu, qApp)
 from PyQt5.QtGui import QIcon
 from PyQt5 import uic, QtCore
 from aiohttp.client_exceptions import ClientConnectionError
@@ -22,6 +23,7 @@ class MoodleApp(QMainWindow):
 
         def check_for_file(filename, l=False):
             if not os.path.isfile(filename):
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
                 with open(filename, 'w') as wfile:
                     wfile.write(('[]' if l else'{}'))
                 return False
@@ -33,15 +35,15 @@ class MoodleApp(QMainWindow):
 
         self.threadpool = QtCore.QThreadPool()
 
-        if not check_for_file('./config.json'):
+        if not check_for_file('./data/config.json'):
             self.set_default_settings()
 
-        with open('./config.json', 'r') as configfile:
+        with open('./data/config.json', 'r') as configfile:
             self.config = load(configfile)
 
-        check_for_file('./courses.json', l=True)
-        check_for_file('./files.json', l=True)
-        check_for_file('./assignments.json', l=True)
+        check_for_file('./data/courses.json', l=True)
+        check_for_file('./data/files.json', l=True)
+        check_for_file('./data/assignments.json', l=True)
 
         self.settings = Settings(self.config)
 
@@ -76,7 +78,7 @@ class MoodleApp(QMainWindow):
         super().show()
 
     def set_default_settings(self):
-        with open('./config.json', 'w') as wfile:
+        with open('./data/config.json', 'w') as wfile:
             default_urls = {'home': 'https://moodle.ksz.ch/my/', 'login': 'https://moodle.ksz.ch/login/index.php'}
             config_dict = {'default_path': None, 'minimise': True, 'urls': default_urls, 'logindata': None, 'courses': None}
             dump(config_dict, wfile)
@@ -118,7 +120,7 @@ class MoodleApp(QMainWindow):
         self.threadpool.start(worker)
 
     def update_files_list(self):
-        with open('files.json', 'r') as files_file:
+        with open('./data/files.json', 'r') as files_file:
             files_to_show = load(files_file)[:50:-1]
 
         for file in files_to_show:
@@ -191,7 +193,7 @@ class Settings(QMainWindow):
 
     def save_settings(self):
         self.config['minimise'] = self.minimiseCheckBox.isChecked()
-        with open('./config.json', 'w') as config_file:
+        with open('./data/config.json', 'w') as config_file:
             dump(self.config, config_file)
 
         courses = []
@@ -201,7 +203,7 @@ class Settings(QMainWindow):
             course.course_dict['checked'] = bool(course.checkState())
             courses.append(course.course_dict)
 
-        with open('./courses.json', 'w') as config_file:
+        with open('./data/courses.json', 'w') as config_file:
             dump(courses, config_file)
 
         self.hide()
@@ -211,7 +213,7 @@ class Settings(QMainWindow):
         moodle = MoodleSession(self.config['urls']['home'], self.config['urls']['login'])
 
         try:
-            loop.run_until_complete(moodle.login(self.config['logindata']))
+            loop.run_until_complete(moodle.login(dict(self.config['logindata'])))
         except IncorrectLogindata:
             self.coursesList.addItem('Incorrect Logindata')
             return
@@ -229,7 +231,7 @@ class Settings(QMainWindow):
         courses = loop.run_until_complete(moodle.get_courses())
         loop.run_until_complete(moodle.close())
 
-        with open('courses.json', 'r') as courses_file:
+        with open('./data/courses.json', 'r') as courses_file:
             found_courses = load(courses_file)
 
         course_urls = [course['url'] for course in found_courses]
@@ -239,13 +241,13 @@ class Settings(QMainWindow):
                 course.checked = False
                 found_courses.append(course.to_dict())
 
-        with open('courses.json', 'w') as courses_file:
+        with open('./data/courses.json', 'w') as courses_file:
             dump(found_courses, courses_file)
 
         self.update_courses_list()
 
     def update_courses_list(self):
-        with open('courses.json', 'r') as courses_file:
+        with open('./data/courses.json', 'r') as courses_file:
             courses = load(courses_file)
 
         for course in courses:
@@ -272,7 +274,7 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
         moodle = MoodleSession(self.config['urls']['home'], self.config['urls']['login'], loop=loop)
 
         try:
-            loop.run_until_complete(moodle.login(self.config['logindata']))
+            loop.run_until_complete(moodle.login(dict(self.config['logindata'])))
         except IncorrectLogindata:
             self.signals.error.emit('Incorrect Logindata')
             return
@@ -289,7 +291,7 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
 
         self.signals.state.emit('Gathering Course Content...')
 
-        with open('courses.json', 'r') as courses_file:
+        with open('./data/courses.json', 'r') as courses_file:
             all_courses = load(courses_file)
 
         courses = []
@@ -304,7 +306,7 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
 
         self.signals.state.emit('Comparing Files...')
 
-        with open('files.json', 'r') as files_file:
+        with open('./data/files.json', 'r') as files_file:
             downloaded_files = load(files_file)
 
         downloaded_files_urls = [file['url'] for file in downloaded_files]
@@ -330,7 +332,7 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
 
         downloaded_files += [file.to_dict() for file in files_to_download]
 
-        with open('files.json', 'w') as files_file:
+        with open('./data/files.json', 'w') as files_file:
             dump(downloaded_files, files_file)
 
         self.signals.state.emit(f'{len(files_to_download)} Files Downloaded')
