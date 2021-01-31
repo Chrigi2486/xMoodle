@@ -96,7 +96,7 @@ class MoodleApp(QMainWindow):
 
     def set_default_settings(self):
         """
-        
+        Sets the default settings for the config file
         """
         with open('./data/config.json', 'w') as wfile:
             default_urls = {'home': 'https://moodle.ksz.ch/my/', 'login': 'https://moodle.ksz.ch/login/index.php'}
@@ -104,16 +104,44 @@ class MoodleApp(QMainWindow):
             dump(config_dict, wfile)
 
     def open_file(self, path):
+        """
+        Opens the file at the given path
+
+        Parameters:
+            path (str): path to file to be opened
+        """
         webbrowser.open(f'file:///{path}')  # https://stackoverflow.com/questions/47812372/python-how-to-open-a-folder-on-windows-explorerpython-3-6-2-windows-10/48096286
 
     def open_explorer(self, path):  # might not work on MacOS  https://stackoverflow.com/questions/281888/open-explorer-on-a-file
+        """
+        Opens the file explorer on the file provided
+
+        Parameters:
+            path (str): path to file to be shown
+        """
         subprocess.Popen(f'explorer /select, "{os.path.normpath(path)}"')
 
     def open_browser(self, url):
+        """
+        Opens the web browser to a URL
+
+        Parameters:
+            url (str): url to open in the browser
+        """
         webbrowser.open(url)
 
     def run_download(self):
+        """
+        Runs the download of files
+        """
         def download_finished(fileno):
+            """
+            Updates the files list and sends a notification
+            if minimised with the amount of files downloaded
+
+            Parameters:
+                fileno (int): number of files downloaded
+            """
             self.update_files_list()
             if self.minimised:
                 self.tray_icon.showMessage(
@@ -123,6 +151,12 @@ class MoodleApp(QMainWindow):
             self.download_running = False
 
         def download_error(error):
+            """
+            Reports an error if an error occures during the download
+
+            Parameters:
+                error (str): the error to be displayed
+            """
             self.download_running = False
             if self.minimised:
                 self.tray_icon.showMessage(
@@ -140,6 +174,9 @@ class MoodleApp(QMainWindow):
         self.threadpool.start(worker)
 
     def update_files_list(self):
+        """
+        Updates the files list with the 50 most recently downloaded files
+        """
         with open('./data/files.json', 'r') as files_file:
             files_to_show = load(files_file)[:50:-1]
 
@@ -151,9 +188,19 @@ class MoodleApp(QMainWindow):
             self.filesList.addItem(item)
 
     def update_assignments_list(self):
+        """
+        Updated the assignments list with the 10 next assignments
+        """
         pass
 
     def closeEvent(self, event):
+        """
+        This is to cancel shutting down the app, but instead
+        minimising it to the system tray if minimised is true
+
+        Parameters:
+            event (QEvent): closing event
+        """
         if self.config['minimise']:
             self.minimised = True
             event.ignore()
@@ -165,7 +212,14 @@ class MoodleApp(QMainWindow):
 
 
 class Settings(QMainWindow):
+    """
+    Inherits from PyQt5.QtWidgets.QMainWindow and will be the
+    second window for the application, serving as the settings
+    """
     def __init__(self, config, *args, **kwargs):
+        """
+        Settings constructor
+        """
         super().__init__(*args, **kwargs)
         uic.loadUi('settings.ui', self)
         self.setFixedSize(421, 394)
@@ -182,12 +236,18 @@ class Settings(QMainWindow):
         self.update_courses_list()
 
     def get_default_path(self):  # https://stackoverflow.com/questions/44750439/using-simple-pyqt-ui-to-choose-directory-path-crushing
+        """
+        Opens a window to request the default download path
+        """
         default_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', os.path.expanduser('~'))
         print(default_path)
         if default_path:
             self.config['default_path'] = default_path
 
     def get_logindata(self):
+        """
+        Checks if the Logindata is valid and reports its results
+        """
         logindata = {'username': str(self.usernameInput.text()), 'password': str(self.passwordInput.text())}
 
         self.usernameInput.setText('')
@@ -214,6 +274,9 @@ class Settings(QMainWindow):
         loop.run_until_complete(moodle.close())
 
     def save_settings(self):
+        """
+        Saves the settings made and closes the window
+        """
         self.config['minimise'] = self.minimiseCheckBox.isChecked()
         with open('./data/config.json', 'w') as config_file:
             dump(self.config, config_file)
@@ -231,6 +294,9 @@ class Settings(QMainWindow):
         self.hide()
 
     def refresh_courses(self):
+        """
+        Refreshes the list of courses
+        """
         loop = asyncio.get_event_loop()
         moodle = MoodleSession(self.config['urls']['home'], self.config['urls']['login'])
 
@@ -273,6 +339,9 @@ class Settings(QMainWindow):
         self.update_courses_list()
 
     def update_courses_list(self):
+        """
+        Updates the courses list
+        """
         with open('./data/courses.json', 'r') as courses_file:
             courses = load(courses_file)
 
@@ -288,14 +357,26 @@ class Settings(QMainWindow):
 
 
 class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/multithreading-pyqt-applications-qthreadpool/
-
+    """
+    Inherits from PyQt5.QtCore.QRunnable and serves as a new Thread
+    for the App to perform it's downloads on
+    """
     def __init__(self, config):
+        """
+        DownloadWorker constructor
+
+        Parameters:
+            config (dict): config for the download
+        """
         super().__init__()
         self.config = config
         self.signals = DownloadWorkerSignals()
 
     @QtCore.pyqtSlot()
     def run(self):
+        """
+        Runs the download and reports it's state by emiting signals
+        """
         self.signals.state.emit('Logging In...')
         loop = asyncio.new_event_loop()
         moodle = MoodleSession(self.config['urls']['home'], self.config['urls']['login'], loop=loop)
@@ -372,6 +453,10 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
 
 
 class DownloadWorkerSignals(QtCore.QObject):
+    """
+    Inherits from PyQt5.QtCore.QObject will contain the signals
+    that the DownloadWorker can emit
+    """
     state = QtCore.pyqtSignal(str)
     finished = QtCore.pyqtSignal(int)
     error = QtCore.pyqtSignal(str)
