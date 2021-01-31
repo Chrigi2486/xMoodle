@@ -155,8 +155,8 @@ class MoodleSession(ClientSession):
             generalinfo = content.find(class_='generaltable').find_all('tr')
             status = generalinfo[0].td.string
             assignment.status = status != 'No attempt'
-            due_date = generalinfo[2].td.string
-            assignment.due_date = str(datetime.strptime(due_date, '%A, %d %B %Y, %I:%M %p'))  # https://stackabuse.com/converting-strings-to-datetime-in-python/
+            # due_date = generalinfo[2].td.string
+            # assignment.due_date = str(datetime.strptime(due_date, '%A, %d %B %Y, %I:%M %p'))  # https://stackabuse.com/converting-strings-to-datetime-in-python/
 
     async def get_folder_content(self, section: MoodleSection, folder: MoodleFolder, parentfolder=False):
         async with self.get(folder.url) as folderpage:
