@@ -11,17 +11,31 @@ from PyQt5.QtGui import QIcon
 from PyQt5 import uic, QtCore
 from aiohttp.client_exceptions import ClientConnectionError
 from Moodle import MoodleSession, MoodleParser, IncorrectLogindata
-from MoodleDataTypes import MoodleCourse, MoodleFile
+from MoodleDataTypes import MoodleCourse
 
 
 class MoodleApp(QMainWindow):
+    """
+    Inherits from PyQt5.QtWidgets.QMainWindow and will be the
+    main window for the application
+    """
 
     download_running = False
     minimised = False
 
     def __init__(self, *args, **kwargs):
-
+        """
+        Constructor for MoodleApp
+        """
         def check_for_file(filename, l=False):
+            """
+            Checks if a file exists at the given path and if not
+            fills it for JSON use
+
+            Parameters:
+                filename (str): path to file to be checked
+                l (bool): True if the JSON shall start with an array
+            """
             if not os.path.isfile(filename):
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
                 with open(filename, 'w') as wfile:
@@ -74,13 +88,19 @@ class MoodleApp(QMainWindow):
         self.update_assignments_list()
 
     def show(self):
+        """
+        Overrides show to change the value of minimised
+        """
         self.minimised = False
         super().show()
 
     def set_default_settings(self):
+        """
+        
+        """
         with open('./data/config.json', 'w') as wfile:
             default_urls = {'home': 'https://moodle.ksz.ch/my/', 'login': 'https://moodle.ksz.ch/login/index.php'}
-            config_dict = {'default_path': None, 'minimise': True, 'urls': default_urls, 'logindata': None, 'courses': None}
+            config_dict = {'default_path': None, 'minimise': True, 'urls': default_urls, 'logindata': None}
             dump(config_dict, wfile)
 
     def open_file(self, path):
@@ -115,13 +135,15 @@ class MoodleApp(QMainWindow):
             return
         self.download_running = True
         worker = DownloadWorker(self.config)
-        worker.signals.state.connect(lambda state: self.downloadLabel.setText(state))
+        worker.signals.state.connect(self.downloadLabel.setText)
         worker.signals.finished.connect(download_finished)
         self.threadpool.start(worker)
 
     def update_files_list(self):
         with open('./data/files.json', 'r') as files_file:
             files_to_show = load(files_file)[:50:-1]
+
+        self.filesList.clear()
 
         for file in files_to_show:
             item = QListWidgetItem(f"{file['path'].split('/', 1)[0]}: {file['name']}")
@@ -215,15 +237,19 @@ class Settings(QMainWindow):
         try:
             loop.run_until_complete(moodle.login(dict(self.config['logindata'])))
         except IncorrectLogindata:
+            loop.run_until_complete(moodle.close())
             self.coursesList.addItem('Incorrect Logindata')
             return
         except ClientConnectionError:
+            loop.run_until_complete(moodle.close())
             self.coursesList.addItem('No Internet Connection')
             return
         except TimeoutError:
+            loop.run_until_complete(moodle.close())
             self.coursesList.addItem('Bad Network Connection')
             return
         except Exception as e:  # Log the error here
+            loop.run_until_complete(moodle.close())
             self.coursesList.addItem('Error')
             print(traceback.format_exc())
             return
@@ -250,6 +276,8 @@ class Settings(QMainWindow):
         with open('./data/courses.json', 'r') as courses_file:
             courses = load(courses_file)
 
+        self.coursesList.clear()
+
         for course in courses:
             item = QListWidgetItem(course['name'])
             item.setCheckState(2 if course['checked'] else 0)
@@ -266,7 +294,6 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
         self.config = config
         self.signals = DownloadWorkerSignals()
 
-
     @QtCore.pyqtSlot()
     def run(self):
         self.signals.state.emit('Logging In...')
@@ -276,15 +303,19 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
         try:
             loop.run_until_complete(moodle.login(dict(self.config['logindata'])))
         except IncorrectLogindata:
+            loop.run_until_complete(moodle.close())
             self.signals.error.emit('Incorrect Logindata')
             return
         except ClientConnectionError:
+            loop.run_until_complete(moodle.close())
             self.signals.error.emit('No Internet Connection')
             return
         except TimeoutError:
+            loop.run_until_complete(moodle.close())
             self.signals.error.emit('Bad Network Connection')
             return
         except Exception as e:
+            loop.run_until_complete(moodle.close())
             self.signals.error.emit('Error')  # Log the error here
             print(traceback.format_exc())
             return
@@ -302,7 +333,7 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
                 courses.append(new_course)
 
         course_content = asyncio.gather(*[moodle.get_course_content(course) for course in courses], loop=loop)
-        loop.run_until_complete(course_content)
+        loop.run_until_complete(course_content)  # fills the course instances with the content found on Moodle
 
         self.signals.state.emit('Comparing Files...')
 
@@ -323,12 +354,12 @@ class DownloadWorker(QtCore.QRunnable):  # https://www.learnpyqt.com/tutorials/m
         self.signals.state.emit(f'Downloading Files... ({len(files_to_download)} Files)')
 
         file_download = [moodle.download_file(file, f"{self.config['default_path']}") for file in files_to_download]
-        downloaded_paths = loop.run_until_complete(asyncio.gather(*file_download, loop=loop))
+        downloaded_paths = loop.run_until_complete(asyncio.gather(*file_download, loop=loop))  # downloads all the files
 
-        loop.run_until_complete(moodle.close())
+        loop.run_until_complete(moodle.close())  # closes the Moodle session
 
         for i, file in enumerate(files_to_download):
-            file.download_path = downloaded_paths[i]
+            file.download_path = downloaded_paths[i]  # adds the download path to the file data
 
         downloaded_files += [file.to_dict() for file in files_to_download]
 
