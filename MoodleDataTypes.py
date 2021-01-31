@@ -2,8 +2,6 @@
 This file contains all the Data Types used by MoodleSession
 """
 
-from datetime import datetime
-
 
 class MoodleData:
     """
